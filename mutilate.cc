@@ -556,8 +556,8 @@ int main(int argc, char **argv) {
     int max = atoi(max_ptr);
     int step = atoi(step_ptr);
 
-    printf("%-7s %7s %7s %7s %7s %7s %7s %7s %7s %8s %8s\n",
-           "#type", "avg", "min", "1st", "5th", "10th",
+    printf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+           "type", "avg", "min", "1st", "5th", "10th",
            "90th", "95th", "99th", "QPS", "target");
 
     for (int q = min; q <= max; q += step) {
@@ -574,8 +574,8 @@ int main(int argc, char **argv) {
       go(servers, options, stats);
 
       stats.print_stats("read", stats.get_sampler, false);
-      printf(" %8.1f", stats.get_qps());
-      printf(" %8d\n", q);
+      printf(",%.1f", stats.get_qps());
+      printf(",%d\n", q);
     }    
   } else {
     go(servers, options, stats);

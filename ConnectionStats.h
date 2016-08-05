@@ -123,8 +123,8 @@ class ConnectionStats {
   }
 
   static void print_header() {
-    printf("%-7s %7s %7s %7s %7s %7s %7s %7s %7s\n",
-           "#type", "avg", "std", "min", /*"1st",*/ "5th", "10th",
+    printf("%s,%s,%s,%s,%s,%s,%s,%s\n",
+           "type", "avg", "min", "5th", "10th",
            "90th", "95th", "99th");
   }
 
@@ -193,13 +193,13 @@ class ConnectionStats {
   void print_stats(const char *tag, LogHistogramSampler &sampler,
                    bool newline = true) {
     if (sampler.total() == 0) {
-      printf("%-7s %7.1f %7.1f %7.1f %7.1f %7.1f %7.1f %7.1f %7.1f",
-             tag, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+      printf("%s,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",
+             tag, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,0.0);
       if (newline) printf("\n");
       return;
     }
 
-    printf("%-7s %7.1f %7.1f %7.1f %7.1f %7.1f %7.1f %7.1f %7.1f",
+      printf("%s,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f,%.1f",
            tag, sampler.average(), sampler.stddev(),
            sampler.get_nth(0), /*sampler.get_nth(1),*/ sampler.get_nth(5),
            sampler.get_nth(10), sampler.get_nth(90),

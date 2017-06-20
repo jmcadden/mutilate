@@ -131,7 +131,6 @@ Command-line Options
     Basic options:
       -s, --server=STRING           Memcached server hostname[:port].  Repeat to 
                                       specify multiple servers.
-          --binary                  Use binary memcached protocol instead of ASCII.
       -q, --qps=INT                 Target aggregate QPS. 0 = peak QPS.  
                                       (default=`0')
       -t, --time=INT                Maximum time to run (seconds).  (default=`5')

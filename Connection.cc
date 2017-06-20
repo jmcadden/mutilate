@@ -13,7 +13,6 @@
 #include "distributions.h"
 #include "Generator.h"
 #include "mutilate.h"
-#include "binary_protocol.h"
 #include "util.h"
 
 /**
@@ -46,11 +45,7 @@ Connection::Connection(struct event_base* _base, struct evdns_base* _evdns,
   bufferevent_setcb(bev, bev_read_cb, bev_write_cb, bev_event_cb, this);
   bufferevent_enable(bev, EV_READ | EV_WRITE);
 
-  if (options.binary) {
-    prot = new ProtocolBinary(options, this, bev);
-  } else {
-    prot = new ProtocolAscii(options, this, bev);
-  }
+  prot = new ProtocolAscii(options, this, bev);
 
   if (bufferevent_socket_connect_hostname(bev, evdns, AF_UNSPEC,
                                           hostname.c_str(),
@@ -421,7 +416,7 @@ void Connection::read_callback() {
       break;
 
     case CONN_SETUP:
-      assert(options.binary);
+      assert(false);//assert(options.binary);
       if (!prot->setup_connection_r(input)) return;
       read_state = IDLE;
       break;

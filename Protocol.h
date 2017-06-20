@@ -19,7 +19,7 @@ public:
   virtual bool setup_connection_w() = 0;
   virtual bool setup_connection_r(evbuffer* input) = 0;
   virtual int  get_request(const char* key) = 0;
-  virtual int  set_request(const char* key, const char* value, int len) = 0;
+  virtual int  post_request(const char* key, const char* value, int len) = 0;
   virtual bool handle_response(evbuffer* input, bool &done) = 0;
 
 protected:
@@ -40,7 +40,7 @@ public:
   virtual bool setup_connection_w() { return true; }
   virtual bool setup_connection_r(evbuffer* input) { return true; }
   virtual int  get_request(const char* key);
-  virtual int  set_request(const char* key, const char* value, int len);
+  virtual int  post_request(const char* key, const char* value, int len);
   virtual bool handle_response(evbuffer* input, bool &done);
 
 private:

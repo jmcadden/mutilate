@@ -74,7 +74,7 @@ private:
     LOADING,
     IDLE,
     WAITING_FOR_GET,
-    WAITING_FOR_SET,
+    WAITING_FOR_POST,
     MAX_READ_STATE,
   };
 
@@ -108,11 +108,11 @@ private:
   // request functions
   void issue_sasl();
   void issue_get(const char* key, double now = 0.0);
-  void issue_set(const char* key, const char* value, int length,
+  void issue_post(const char* key, const char* value, int length,
                  double now = 0.0);
 
   // protocol fucntions
-  int set_request_ascii(const char* key, const char* value, int length);
+  int post_request_ascii(const char* key, const char* value, int length);
   int get_request_ascii(const char* key);
 
   bool consume_ascii_line(evbuffer *input, bool &done);

@@ -105,7 +105,7 @@ void Connection::start_loading() {
     int index = lrand48() % (1024 * 1024);
     string keystr = keygen->generate(loader_issued);
     strcpy(key, keystr.c_str());
-    issue_set(key, &random_char[index], valuesize->generate());
+    issue_post(key, &random_char[index], valuesize->generate());
     loader_issued++;
   }
 }
@@ -121,7 +121,7 @@ void Connection::issue_something(double now) {
 
   if (drand48() < options.update) {
     int index = lrand48() % (1024 * 1024);
-    issue_set(key, &random_char[index], valuesize->generate(), now);
+    issue_post(key, &random_char[index], valuesize->generate(), now);
   } else {
     issue_get(key, now);
   }
@@ -162,7 +162,7 @@ void Connection::issue_get(const char* key, double now) {
 /**
  * Issue a set request to the server.
  */
-void Connection::issue_set(const char* key, const char* value, int length,
+void Connection::issue_post(const char* key, const char* value, int length,
                            double now) {
   Operation op;
   int l;
@@ -174,11 +174,11 @@ void Connection::issue_set(const char* key, const char* value, int length,
   else op.start_time = now;
 #endif
 
-  op.type = Operation::SET;
+  op.type = Operation::POST;
   op_queue.push(op);
 
-  if (read_state == IDLE) read_state = WAITING_FOR_SET;
-  l = prot->set_request(key, value, length);
+  if (read_state == IDLE) read_state = WAITING_FOR_POST;
+  l = prot->post_request(key, value, length);
   if (read_state != LOADING) stats.tx_bytes += l;
 }
 
@@ -198,7 +198,7 @@ void Connection::pop_op() {
     Operation& op = op_queue.front();
     switch (op.type) {
     case Operation::GET: read_state = WAITING_FOR_GET; break;
-    case Operation::SET: read_state = WAITING_FOR_SET; break;
+    case Operation::POST: read_state = WAITING_FOR_POST; break;
     default: DIE("Not implemented.");
     }
   }
@@ -225,7 +225,7 @@ void Connection::finish_op(Operation *op) {
 
   switch (op->type) {
   case Operation::GET: stats.log_get(*op); break;
-  case Operation::SET: stats.log_set(*op); break;
+  case Operation::POST: stats.log_post(*op); break;
   default: DIE("Not implemented.");
   }
 
@@ -384,7 +384,7 @@ void Connection::read_callback() {
       }
       break;
 
-    case WAITING_FOR_SET:
+    case WAITING_FOR_POST:
       assert(op_queue.size() > 0);
       if (!prot->handle_response(input, done)) return;
       finish_op(op);
@@ -407,7 +407,7 @@ void Connection::read_callback() {
           string keystr = keygen->generate(loader_issued);
           strcpy(key, keystr.c_str());
           int index = lrand48() % (1024 * 1024);
-          issue_set(key, &random_char[index], valuesize->generate());
+          issue_post(key, &random_char[index], valuesize->generate());
 
           loader_issued++;
         }

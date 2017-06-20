@@ -3,7 +3,7 @@
 
 #include "log.h"
 
-log_level_t log_level = INFO;
+log_level_t log_level = DEBUG;
 
 void log_file_line(log_level_t level, const char *file, int line,
                    const char *format, ...) {

@@ -22,31 +22,31 @@ class ConnectionStats {
  public:
  ConnectionStats(bool _sampling = true) :
 #ifdef USE_ADAPTIVE_SAMPLER
-   get_sampler(100000), set_sampler(100000), op_sampler(100000),
+   get_sampler(100000), post_sampler(100000), op_sampler(100000),
 #elif defined(USE_HISTOGRAM_SAMPLER)
-   get_sampler(10000,1), set_sampler(10000,1), op_sampler(1000,1),
+   get_sampler(10000,1), post_sampler(10000,1), op_sampler(1000,1),
 #else
-   get_sampler(200), set_sampler(200), op_sampler(100),
+   get_sampler(200), post_sampler(200), op_sampler(100),
 #endif
-   rx_bytes(0), tx_bytes(0), gets(0), sets(0),
+   rx_bytes(0), tx_bytes(0), gets(0), posts(0),
    get_misses(0), skips(0), sampling(_sampling) {}
 
 #ifdef USE_ADAPTIVE_SAMPLER
   AdaptiveSampler<Operation> get_sampler;
-  AdaptiveSampler<Operation> set_sampler;
+  AdaptiveSampler<Operation> post_sampler;
   AdaptiveSampler<double> op_sampler;
 #elif defined(USE_HISTOGRAM_SAMPLER)
   HistogramSampler get_sampler;
-  HistogramSampler set_sampler;
+  HistogramSampler post_sampler;
   HistogramSampler op_sampler;
 #else
   LogHistogramSampler get_sampler;
-  LogHistogramSampler set_sampler;
+  LogHistogramSampler post_sampler;
   LogHistogramSampler op_sampler;
 #endif
 
   uint64_t rx_bytes, tx_bytes;
-  uint64_t gets, sets, get_misses;
+  uint64_t gets, posts, get_misses;
   uint64_t skips;
 
   double start, stop;
@@ -54,11 +54,11 @@ class ConnectionStats {
   bool sampling;
 
   void log_get(Operation& op) { if (sampling) get_sampler.sample(op); gets++; }
-  void log_set(Operation& op) { if (sampling) set_sampler.sample(op); sets++; }
+  void log_post(Operation& op) { if (sampling) post_sampler.sample(op); posts++; }
   void log_op (double op)     { if (sampling)  op_sampler.sample(op); }
 
   double get_qps() {
-    return (gets + sets) / (stop - start);
+    return (gets + posts) / (stop - start);
   }
 
 #ifdef USE_ADAPTIVE_SAMPLER
@@ -69,7 +69,7 @@ class ConnectionStats {
 
     for (auto s: get_sampler.samples)
       samples.push_back(s.time()); // (s.end_time - s.start_time) * 1000000);
-    for (auto s: set_sampler.samples)
+    for (auto s: post_sampler.samples)
       samples.push_back(s.time()); // (s.end_time - s.start_time) * 1000000);
 
     sort(samples.begin(), samples.end());
@@ -83,7 +83,7 @@ class ConnectionStats {
   }
 #else
   double get_nth(double nth) {
-    // FIXME: nth across gets & sets?
+    // FIXME: nth across gets & posts?
     return get_sampler.get_nth(nth);
   }
 #endif
@@ -91,18 +91,18 @@ class ConnectionStats {
   void accumulate(const ConnectionStats &cs) {
 #ifdef USE_ADAPTIVE_SAMPLER
     for (auto i: cs.get_sampler.samples) get_sampler.sample(i); //log_get(i);
-    for (auto i: cs.set_sampler.samples) set_sampler.sample(i); //log_set(i);
+    for (auto i: cs.post_sampler.samples) post_sampler.sample(i); //log_set(i);
     for (auto i: cs.op_sampler.samples)  op_sampler.sample(i); //log_op(i);
 #else
     get_sampler.accumulate(cs.get_sampler);
-    set_sampler.accumulate(cs.set_sampler);
+    post_sampler.accumulate(cs.post_sampler);
     op_sampler.accumulate(cs.op_sampler);
 #endif
 
     rx_bytes += cs.rx_bytes;
     tx_bytes += cs.tx_bytes;
     gets += cs.gets;
-    sets += cs.sets;
+    posts += cs.posts;
     get_misses += cs.get_misses;
     skips += cs.skips;
 
@@ -114,7 +114,7 @@ class ConnectionStats {
     rx_bytes += as.rx_bytes;
     tx_bytes += as.tx_bytes;
     gets += as.gets;
-    sets += as.sets;
+    posts += as.posts;
     get_misses += as.get_misses;
     skips += as.skips;
 

@@ -32,7 +32,7 @@ int ProtocolAscii::get_request(const char* key) {
 /**
  * Send an ascii set request.
  */
-int ProtocolAscii::set_request(const char* key, const char* value, int len) {
+int ProtocolAscii::post_request(const char* key, const char* value, int len) {
   int l;
   l = evbuffer_add_printf(bufferevent_get_output(bev),
                           "set %s 0 0 %d\r\n", key, len);

@@ -147,7 +147,7 @@ static bool s_send (zmq::socket_t &socket, const std::string &string) {
  * 1. Master <-> Agent: Synchronize
  * 2. Everyone: RUN for options.time seconds.
  * 3. Master -> Agent: Dummy message
- * 4. Agent -> Master: Send AgentStats [w/ RX/TX bytes, # gets/sets]
+ * 4. Agent -> Master: Send AgentStats [w/ RX/TX bytes, # gets/posts
  *
  * The master then aggregates AgentStats across all agents with its
  * own ConnectionStats to compute overall statistics.
@@ -206,7 +206,7 @@ void agent() {
     as.rx_bytes = stats.rx_bytes;
     as.tx_bytes = stats.tx_bytes;
     as.gets = stats.gets;
-    as.sets = stats.sets;
+    as.posts = stats.posts;
     as.get_misses = stats.get_misses;
     as.start = stats.start;
     as.stop = stats.stop;
@@ -584,10 +584,10 @@ int main(int argc, char **argv) {
   if (!args.scan_given && !args.loadonly_given) {
     stats.print_header();
     stats.print_stats("read",   stats.get_sampler);
-    stats.print_stats("update", stats.set_sampler);
+    stats.print_stats("update", stats.post_sampler);
     stats.print_stats("op_q",   stats.op_sampler);
 
-    int total = stats.gets + stats.sets;
+    int total = stats.gets + stats.posts;
 
     printf("\nTotal QPS = %.1f (%d / %.1fs)\n",
            total / (stats.stop - stats.start),
@@ -735,7 +735,7 @@ void go(const vector<string>& servers, options_t& options,
 
 #ifdef HAVE_LIBZMQ
   if (args.agent_given > 0) {
-    int total = stats.gets + stats.sets;
+    int total = stats.gets + stats.posts;
 
     V("Local QPS = %.1f (%d / %.1fs)",
       total / (stats.stop - stats.start),

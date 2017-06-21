@@ -62,7 +62,7 @@ private:
 
   struct event_base *base;
   struct evdns_base *evdns;
-  struct bufferevent *bev;
+	struct evhttp_connection *evcon = NULL;
 
   struct event *timer; // Used to control inter-transmission time.
   double next_time;    // Inter-transmission time parameters.

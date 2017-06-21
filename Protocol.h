@@ -2,7 +2,7 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
-#include <event2/bufferevent.h>
+#include <event2/http.h>
 
 #include "ConnectionOptions.h"
 
@@ -12,8 +12,8 @@ class Connection;
 
 class Protocol {
 public:
-  Protocol(options_t _opts, Connection* _conn, bufferevent* _bev):
-    opts(_opts), conn(_conn), bev(_bev) {};
+  Protocol(options_t _opts, Connection* _conn, struct evhttp_connection* _evcon):
+    opts(_opts), conn(_conn), evcon(_evcon) {};
   ~Protocol() {};
 
   virtual bool setup_connection_w() = 0;
@@ -25,13 +25,13 @@ public:
 protected:
   options_t    opts;
   Connection*  conn;
-  bufferevent* bev;
+  struct evhttp_connection* evcon;
 };
 
 class ProtocolAscii : public Protocol {
 public:
-  ProtocolAscii(options_t opts, Connection* conn, bufferevent* bev):
-    Protocol(opts, conn, bev) {
+  ProtocolAscii(options_t opts, Connection* conn, struct evhttp_connection* evcon):
+    Protocol(opts, conn, evcon) {
     read_state = IDLE;
   };
 

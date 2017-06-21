@@ -22,9 +22,9 @@
  * Send an ascii get request.
  */
 int ProtocolAscii::get_request(const char* key) {
-  int l;
-  l = evbuffer_add_printf(
-    bufferevent_get_output(bev), "get %s\r\n", key);
+  int l =0;
+  //l = evbuffer_add_printf(
+  //  bufferevent_get_output(bev), "get %s\r\n", key);
   if (read_state == IDLE) read_state = WAITING_FOR_GET;
   return l;
 }
@@ -33,11 +33,11 @@ int ProtocolAscii::get_request(const char* key) {
  * Send an ascii set request.
  */
 int ProtocolAscii::post_request(const char* key, const char* value, int len) {
-  int l;
-  l = evbuffer_add_printf(bufferevent_get_output(bev),
-                          "set %s 0 0 %d\r\n", key, len);
-  bufferevent_write(bev, value, len);
-  bufferevent_write(bev, "\r\n", 2);
+  int l=0;
+  //l = evbuffer_add_printf(bufferevent_get_output(bev),
+  //                        "set %s 0 0 %d\r\n", key, len);
+  //bufferevent_write(bev, value, len);
+  //bufferevent_write(bev, "\r\n", 2);
   l += len + 2;
   if (read_state == IDLE) read_state = WAITING_FOR_END;
   return l;

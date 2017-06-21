@@ -4,6 +4,7 @@
 #include <event2/bufferevent.h>
 #include <event2/dns.h>
 #include <event2/event.h>
+#include <event2/http.h>
 #include <event2/thread.h>
 #include <event2/util.h>
 
@@ -41,17 +42,21 @@ Connection::Connection(struct event_base* _base, struct evdns_base* _evdns,
 
   last_tx = last_rx = 0.0;
 
-  bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
-  bufferevent_setcb(bev, bev_read_cb, bev_write_cb, bev_event_cb, this);
-  bufferevent_enable(bev, EV_READ | EV_WRITE);
+  //bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
+  //bufferevent_setcb(bev, bev_read_cb, bev_write_cb, bev_event_cb, this);
+  //bufferevent_enable(bev, EV_READ | EV_WRITE);
 
-  prot = new ProtocolAscii(options, this, bev);
+	// For simplicity, we let DNS resolution block. Everything else should be
+	// asynchronous though.
+	evcon = evhttp_connection_base_new(base, evdns, hostname.c_str(), atoi(port.c_str()));
 
-  if (bufferevent_socket_connect_hostname(bev, evdns, AF_UNSPEC,
-                                          hostname.c_str(),
-                                          atoi(port.c_str()))) {
-    DIE("bufferevent_socket_connect_hostname()");
-  }
+  prot = new ProtocolAscii(options, this, evcon);
+
+  //if (bufferevent_socket_connect_hostname(bev, evdns, AF_UNSPEC,
+  //                                        hostname.c_str(),
+  //                                        atoi(port.c_str()))) {
+  //  DIE("bufferevent_socket_connect_hostname()");
+  //}
 
   timer = evtimer_new(base, timer_cb, this);
 }
@@ -63,7 +68,7 @@ Connection::~Connection() {
   event_free(timer);
   timer = NULL;
   // FIXME:  W("Drain op_q?");
-  bufferevent_free(bev);
+  //bufferevent_free(bev);
 
   delete iagen;
   delete keygen;
@@ -87,9 +92,9 @@ void Connection::reset() {
  * Set our event processing priority.
  */
 void Connection::set_priority(int pri) {
-  if (bufferevent_priority_set(bev, pri)) {
-    DIE("bufferevent_set_priority(bev, %d) failed", pri);
-  }
+  //if (bufferevent_priority_set(bev, pri)) {
+  //  DIE("bufferevent_set_priority(bev, %d) failed", pri);
+  //}
 }
 
 /**
@@ -251,7 +256,7 @@ bool Connection::check_exit_condition(double now) {
 void Connection::event_callback(short events) {
   if (events & BEV_EVENT_CONNECTED) {
     D("Connected to %s:%s.", hostname.c_str(), port.c_str());
-    int fd = bufferevent_getfd(bev);
+    int fd = 0;//bufferevent_getfd(bev);
     if (fd < 0) DIE("bufferevent_getfd");
 
     if (!options.no_nodelay) {
@@ -267,7 +272,7 @@ void Connection::event_callback(short events) {
     }
 
   } else if (events & BEV_EVENT_ERROR) {
-    int err = bufferevent_socket_get_dns_error(bev);
+    int err = 0;//bufferevent_socket_get_dns_error(bev);
     if (err) DIE("DNS error: %s", evutil_gai_strerror(err));
     DIE("BEV_EVENT_ERROR: %s", strerror(errno));
 
@@ -360,7 +365,7 @@ void Connection::drive_write_machine(double now) {
  * Handle incoming data (responses).
  */
 void Connection::read_callback() {
-  struct evbuffer *input = bufferevent_get_input(bev);
+  struct evbuffer *input = NULL;//bufferevent_get_input(bev);
 
   Operation *op = NULL;
   bool done, full_read;

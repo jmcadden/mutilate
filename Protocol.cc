@@ -30,7 +30,7 @@ int ProtocolAscii::get_request(const char* key) {
 }
 
 /**
- * Send an ascii set request.
+ * Send an ascii post request.
  */
 int ProtocolAscii::post_request(const char* key, const char* value, int len) {
   int l=0;

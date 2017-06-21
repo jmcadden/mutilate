@@ -21,6 +21,7 @@ public:
   virtual int  get_request(const char* key) = 0;
   virtual int  post_request(const char* key, const char* value, int len) = 0;
   virtual bool handle_response(evbuffer* input, bool &done) = 0;
+  virtual bool handle_request(evbuffer* input, bool &done) = 0;
 
 protected:
   options_t    opts;

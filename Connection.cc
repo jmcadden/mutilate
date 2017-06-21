@@ -50,7 +50,7 @@ Connection::Connection(struct event_base* _base, struct evdns_base* _evdns,
 	// asynchronous though.
 	evcon = evhttp_connection_base_new(base, evdns, hostname.c_str(), atoi(port.c_str()));
 
-  prot = new ProtocolAscii(options, this, evcon);
+  //prot = new ProtocolAscii(options, this, evcon);
 
   //if (bufferevent_socket_connect_hostname(bev, evdns, AF_UNSPEC,
   //                                        hostname.c_str(),
@@ -116,6 +116,14 @@ void Connection::start_loading() {
 }
 
 /**
+ * http request callback
+ */
+void Connection::request_callback(struct evhttp_request *req){
+  DIE("GOT TO REQUEST CB");
+  return;
+}
+
+/**
  * Issue either a get or set request to the server according to our probability distribution.
  */
 void Connection::issue_something(double now) {
@@ -131,6 +139,40 @@ void Connection::issue_something(double now) {
     issue_get(key, now);
   }
 }
+
+
+void Connection::issue_request(const char* key, double now, evhttp_cmd_type type)
+ {
+  Operation op;
+
+#if HAVE_CLOCK_GETTIME
+  op.start_time = get_time_accurate();
+#else
+  if (now == 0.0) {
+#if USE_CACHED_TIME
+    struct timeval now_tv;
+    event_base_gettimeofday_cached(base, &now_tv);
+    op.start_time = tv_to_double(&now_tv);
+#else
+    op.start_time = get_time();
+#endif
+  } else {
+    op.start_time = now;
+  }
+#endif
+
+  op.key = string(key);
+  //op.type = type // ??? 
+  op_queue.push(op);
+
+  if (read_state == IDLE) read_state = WAITING_FOR_GET;
+
+  auto req = evhttp_request_new(bev_request_cb, this);
+  if (evhttp_make_request(evcon, req, type, uri.c_str()) < 0){
+    DIE("REQUEST FAILED!");
+  }
+  //if (read_state != LOADING) stats.tx_bytes += l;
+ }
 
 /**
  * Issue a get request to the server.
@@ -463,3 +505,7 @@ void timer_cb(evutil_socket_t fd, short what, void *ptr) {
   conn->timer_callback();
 }
 
+void bev_request_cb(struct evhttp_request *req, void *ptr){
+  Connection* conn = (Connection*) ptr;
+  conn->request_callback(req);
+}

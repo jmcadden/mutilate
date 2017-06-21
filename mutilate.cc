@@ -748,7 +748,7 @@ void do_mutilate(const vector<string>& servers, options_t& options,
 
   for (auto s: servers) {
     
-    string hostname, port, path, query, uri;
+    string hostname, port, path, uri;
 	auto http_uri = evhttp_uri_parse(s.c_str());
 
 	  hostname = string(evhttp_uri_get_host(http_uri));
@@ -762,11 +762,11 @@ void do_mutilate(const vector<string>& servers, options_t& options,
 	  	path = "/";
 	  }
 
-	  query = string(evhttp_uri_get_query(http_uri));
-	  if (query.length() == 0) { 
+	  auto q = evhttp_uri_get_query(http_uri);
+	  if (q == NULL) { 
       uri =  path;
 	  } else {
-      uri = path + "?" + query;
+      uri = path + "?" + string(q);
 	  }
 
     int conns = args.measure_connections_given ? args.measure_connections_arg :

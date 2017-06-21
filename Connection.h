@@ -27,6 +27,8 @@ void bev_read_cb(struct bufferevent *bev, void *ptr);
 void bev_write_cb(struct bufferevent *bev, void *ptr);
 void timer_cb(evutil_socket_t fd, short what, void *ptr);
 
+void bev_request_cb(struct evhttp_request *req, void *ptr);
+
 class Protocol;
 
 class Connection {
@@ -54,6 +56,8 @@ public:
   void read_callback();
   void write_callback();
   void timer_callback();
+  void request_callback(struct evhttp_request *req);
+  //
 
 private:
   string hostname;
@@ -104,6 +108,7 @@ private:
   void pop_op();
   void finish_op(Operation *op);
   void issue_something(double now = 0.0);
+  void issue_request(const char* key, double now, evhttp_cmd_type type);
   void drive_write_machine(double now = 0.0);
 
   // request functions

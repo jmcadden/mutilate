@@ -19,10 +19,10 @@
  * Create a new connection to a server endpoint.
  */
 Connection::Connection(struct event_base* _base, struct evdns_base* _evdns,
-                       string _hostname, string _port, options_t _options,
+                       string _hostname, string _port, string _uri, options_t _options,
                        bool sampling) :
   start_time(0), stats(sampling), options(_options),
-  hostname(_hostname), port(_port), base(_base), evdns(_evdns)
+  hostname(_hostname), port(_port), uri(_uri), base(_base), evdns(_evdns)
 {
   valuesize = createGenerator(options.valuesize);
   keysize = createGenerator(options.keysize);

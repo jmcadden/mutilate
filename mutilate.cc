@@ -17,6 +17,7 @@
 #include <event2/bufferevent.h>
 #include <event2/dns.h>
 #include <event2/event.h>
+#include <event2/http.h>
 #include <event2/thread.h>
 #include <event2/util.h>
 
@@ -82,6 +83,7 @@ void do_mutilate(const vector<string> &servers, options_t &options,
 );
 void args_to_options(options_t* options);
 void* thread_main(void *arg);
+bool verify_uri(const char* s);
 
 #ifdef HAVE_LIBZMQ
 static std::string s_recv (zmq::socket_t &socket) {
@@ -173,10 +175,12 @@ void agent() {
 
     vector<string> servers;
 
+    /* TODO: */
     for (int i = 0; i < options.server_given; i++) {
       servers.push_back(s_recv(socket));
       s_send(socket, "ACK");
     }
+    /* ******** */
 
     for (auto i: servers) {
       V("Got server = %s", i.c_str());
@@ -354,64 +358,6 @@ void sync_agent(zmq::socket_t* socket) {
 }
 #endif
 
-string name_to_ipaddr(string host) {
-  char *s_copy = new char[host.length() + 1];
-  strcpy(s_copy, host.c_str());
-
-  char *saveptr = NULL;  // For reentrant strtok().
-
-  char *h_ptr = strtok_r(s_copy, ":", &saveptr);
-  char *p_ptr = strtok_r(NULL, ":", &saveptr);
-
-  char ipaddr[16];
-
-  if (h_ptr == NULL)
-    DIE("strtok(.., \":\") failed to parse %s", host.c_str());
-
-  string hostname = h_ptr;
-  string port = "11211";
-  if (p_ptr) port = p_ptr;
-
-  struct evutil_addrinfo hints;
-  struct evutil_addrinfo *answer = NULL;
-  int err;
-
-  /* Build the hints to tell getaddrinfo how to act. */
-  memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_UNSPEC; /* v4 or v6 is fine. */
-  hints.ai_socktype = SOCK_STREAM;
-  hints.ai_protocol = IPPROTO_TCP; /* We want a TCP socket */
-  /* Only return addresses we can use. */
-  hints.ai_flags = EVUTIL_AI_ADDRCONFIG;
-
-  /* Look up the hostname. */
-  err = evutil_getaddrinfo(h_ptr, NULL, &hints, &answer);
-  if (err < 0) {
-    DIE("Error while resolving '%s': %s",
-        host.c_str(), evutil_gai_strerror(err));
-  }
-
-  if (answer == NULL) DIE("No DNS answer.");
-
-  void *ptr = NULL;
-  switch (answer->ai_family) {
-  case AF_INET:
-    ptr = &((struct sockaddr_in *) answer->ai_addr)->sin_addr;
-    break;
-  case AF_INET6:
-    ptr = &((struct sockaddr_in6 *) answer->ai_addr)->sin6_addr;
-    break;
-  }
-
-  inet_ntop (answer->ai_family, ptr, ipaddr, 16);
-
-  D("Resolved %s to %s", h_ptr, (string(ipaddr) + ":" + string(port)).c_str());
-
-  delete[] s_copy;
-
-  return string(ipaddr) + ":" + string(port);
-}
-
 int main(int argc, char **argv) {
   if (cmdline_parser(argc, argv, &args) != 0) exit(-1);
 
@@ -471,7 +417,11 @@ int main(int argc, char **argv) {
 
   vector<string> servers;
   for (unsigned int s = 0; s < args.server_given; s++)
-    servers.push_back(name_to_ipaddr(string(args.server_arg[s])));
+  {
+    if(verify_uri(args.server_arg[s])){
+      servers.push_back(string(args.server_arg[s]));
+    }
+  }
 
   ConnectionStats stats;
 
@@ -769,8 +719,6 @@ void do_mutilate(const vector<string>& servers, options_t& options,
   int loop_flag =
     (options.blocking || args.blocking_given) ? EVLOOP_ONCE : EVLOOP_NONBLOCK;
 
-  char *saveptr = NULL;  // For reentrant strtok().
-
   struct event_base *base;
   struct evdns_base *evdns;
   struct event_config *config;
@@ -799,26 +747,33 @@ void do_mutilate(const vector<string>& servers, options_t& options,
   vector<Connection*> server_lead;
 
   for (auto s: servers) {
-    // Split args.server_arg[s] into host:port using strtok().
-    char *s_copy = new char[s.length() + 1];
-    strcpy(s_copy, s.c_str());
+    
+    string hostname, port, path, query, uri;
+	auto http_uri = evhttp_uri_parse(s.c_str());
 
-    char *h_ptr = strtok_r(s_copy, ":", &saveptr);
-    char *p_ptr = strtok_r(NULL, ":", &saveptr);
+	  hostname = string(evhttp_uri_get_host(http_uri));
+	  port = to_string(evhttp_uri_get_port(http_uri));
+	  if (port == "-1") {
+		  port = (strcasecmp(evhttp_uri_get_scheme(http_uri), "http") == 0) ? "80" : "443";
+	  }
 
-    if (h_ptr == NULL) DIE("strtok(.., \":\") failed to parse %s", s.c_str());
+	  path = string(evhttp_uri_get_path(http_uri));
+	  if (path.length() == 0) {
+	  	path = "/";
+	  }
 
-    string hostname = h_ptr;
-    string port = "11211";
-    if (p_ptr) port = p_ptr;
-
-    delete[] s_copy;
+	  query = string(evhttp_uri_get_query(http_uri));
+	  if (query.length() == 0) { 
+      uri =  path;
+	  } else {
+      uri = path + "?" + query;
+	  }
 
     int conns = args.measure_connections_given ? args.measure_connections_arg :
       options.connections;
 
     for (int c = 0; c < conns; c++) {
-      Connection* conn = new Connection(base, evdns, hostname, port, options,
+      Connection* conn = new Connection(base, evdns, hostname, port, uri, options,
                                         args.agentmode_given ? false :
                                         true);
       connections.push_back(conn);
@@ -1105,5 +1060,28 @@ void init_random_stuff() {
     memcpy(&random_char[cursor], lorem, max);
     cursor += max;
   }
+}
+
+bool verify_uri(const char* s)
+{
+	auto http_uri = evhttp_uri_parse(s);
+	if (http_uri == NULL) {
+    DIE("malformed url");
+    return false;
+	}
+
+	auto scheme = evhttp_uri_get_scheme(http_uri);
+	if (scheme == NULL || (strcasecmp(scheme, "https") != 0 &&
+	                       strcasecmp(scheme, "http") != 0)) {
+		DIE("url must be http or https");
+    return false;
+	}
+
+  auto host = evhttp_uri_get_host(http_uri);
+	if ( host == NULL ) {
+		DIE("url must have a host");
+    return false;
+	}
+  return true;
 }
 

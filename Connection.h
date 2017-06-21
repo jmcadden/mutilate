@@ -32,7 +32,7 @@ class Protocol;
 class Connection {
 public:
   Connection(struct event_base* _base, struct evdns_base* _evdns,
-             string _hostname, string _port, options_t options,
+             string _hostname, string _port, string uri, options_t options,
              bool sampling = true);
   ~Connection();
 
@@ -58,6 +58,7 @@ public:
 private:
   string hostname;
   string port;
+  string uri;
 
   struct event_base *base;
   struct evdns_base *evdns;

@@ -37,7 +37,7 @@ Connection::Connection(struct event_base* _base, struct evdns_base* _evdns,
     iagen->set_lambda(options.lambda);
   }
 
-  read_state  = INIT_READ;
+  read_state  = IDLE;
   write_state = INIT_WRITE;
 
   last_tx = last_rx = 0.0;
@@ -101,44 +101,85 @@ void Connection::set_priority(int pri) {
  * Load any required test data onto the server.
  */
 void Connection::start_loading() {
-  read_state = LOADING;
-  loader_issued = loader_completed = 0;
+  //read_state = LOADING;
+  //loader_issued = loader_completed = 0;
 
-  for (int i = 0; i < LOADER_CHUNK; i++) {
-    if (loader_issued >= options.records) break;
-    char key[256];
-    int index = lrand48() % (1024 * 1024);
-    string keystr = keygen->generate(loader_issued);
-    strcpy(key, keystr.c_str());
-    issue_post(key, &random_char[index], valuesize->generate());
-    loader_issued++;
-  }
+  //for (int i = 0; i < LOADER_CHUNK; i++) {
+  //  if (loader_issued >= options.records) break;
+  //  char key[256];
+  //  int index = lrand48() % (1024 * 1024);
+  //  string keystr = keygen->generate(loader_issued);
+  //  strcpy(key, keystr.c_str());
+  //  issue_post(key, &random_char[index], valuesize->generate());
+  //  loader_issued++;
+  //}
 }
 
 /**
  * http request callback
  */
 void Connection::request_callback(struct evhttp_request *req){
-  DIE("GOT TO REQUEST CB");
-  return;
+
+	if (!req) {
+		/* If req is NULL, it means an error occurred */
+    DIE("Uh oh.. Request returned is NULL ");
+	}
+
+  if (op_queue.size() == 0) DIE("Spurious read callback.");
+  Operation *op = &op_queue.front();;
+
+  auto ret = evhttp_request_get_response_code(req);
+  switch(ret){
+    case HTTP_OK:
+      break;
+    case HTTP_NOCONTENT:
+    case HTTP_MOVEPERM:
+    case HTTP_MOVETEMP:
+    case HTTP_NOTMODIFIED:
+    case HTTP_BADREQUEST:
+    case HTTP_NOTFOUND:
+    case HTTP_BADMETHOD:
+    case HTTP_ENTITYTOOLARGE:
+    case HTTP_EXPECTATIONFAILED:
+    case HTTP_INTERNAL:
+    case HTTP_NOTIMPLEMENTED:
+    case HTTP_SERVUNAVAIL:
+      stats.get_misses++;
+	    //D("Error Response code #%d\n", evhttp_request_get_response_code(req));
+      break;
+    default: 
+      DIE("UNKNOWN RESPONSE CODE");
+  }
+  finish_op(op);
+      
+  char buffer[256];
+  int nread;
+	while ((nread = evbuffer_remove(evhttp_request_get_input_buffer(req),
+		    buffer, sizeof(buffer))) > 0) {
+    stats.rx_bytes += nread;
+    // print payload
+		//fwrite(buffer, nread, 1, stdout);
+	}
 }
 
 /**
  * Issue either a get or set request to the server according to our probability distribution.
  */
 void Connection::issue_something(double now) {
-    D("Issuing...!");
   char key[256];
   // FIXME: generate key distribution here!
   string keystr = keygen->generate(lrand48() % options.records);
   strcpy(key, keystr.c_str());
 
+#if 0
   if (drand48() < options.update) {
     int index = lrand48() % (1024 * 1024);
     issue_post(key, &random_char[index], valuesize->generate(), now);
   } else {
     issue_get(key, now);
   }
+#endif 
+  issue_request(key, now, EVHTTP_REQ_GET);
 }
 
 
@@ -163,7 +204,7 @@ void Connection::issue_request(const char* key, double now, evhttp_cmd_type type
 #endif
 
   op.key = string(key);
-  //op.type = type // ??? 
+  op.type = type;
   op_queue.push(op);
 
   if (read_state == IDLE) read_state = WAITING_FOR_GET;
@@ -175,6 +216,14 @@ void Connection::issue_request(const char* key, double now, evhttp_cmd_type type
   //if (read_state != LOADING) stats.tx_bytes += l;
  }
 
+void Connection::issue_post(const char* key, const char* value, int length,
+                           double now) {
+  DIE("ISSUE POST");
+}
+void Connection::issue_get(const char* key, double now) {
+  DIE("ISSUE GET");
+}
+#if 0
 /**
  * Issue a get request to the server.
  */
@@ -230,6 +279,7 @@ void Connection::issue_post(const char* key, const char* value, int length,
   if (read_state != LOADING) stats.tx_bytes += l;
 }
 
+#endif
 /**
  * Return the oldest live operation in progress.
  */
@@ -243,12 +293,14 @@ void Connection::pop_op() {
 
   // Advance the read state machine.
   if (op_queue.size() > 0) {
-    Operation& op = op_queue.front();
-    switch (op.type) {
+    DIE("HERE WE ARE 1234");
+    #if 0
+    Operation& op = op_queue.front(); switch (op.type) {
     case Operation::GET: read_state = WAITING_FOR_GET; break;
     case Operation::POST: read_state = WAITING_FOR_POST; break;
     default: DIE("Not implemented.");
     }
+    #endif
   }
 }
 
@@ -272,8 +324,8 @@ void Connection::finish_op(Operation *op) {
 #endif
 
   switch (op->type) {
-  case Operation::GET: stats.log_get(*op); break;
-  case Operation::POST: stats.log_post(*op); break;
+  case EVHTTP_REQ_GET: stats.log_get(*op); break;
+  case EVHTTP_REQ_POST: stats.log_post(*op); break;
   default: DIE("Not implemented.");
   }
 
@@ -508,7 +560,6 @@ void timer_cb(evutil_socket_t fd, short what, void *ptr) {
 }
 
 void bev_request_cb(struct evhttp_request *req, void *ptr){
-    D("Bev Request Callback!");
   Connection* conn = (Connection*) ptr;
   conn->request_callback(req);
 }

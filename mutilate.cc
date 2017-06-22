@@ -533,9 +533,9 @@ int main(int argc, char **argv) {
 
   if (!args.scan_given && !args.loadonly_given) {
     stats.print_header();
-    stats.print_stats("read",   stats.get_sampler);
-    stats.print_stats("update", stats.post_sampler);
-    stats.print_stats("op_q",   stats.op_sampler);
+    stats.print_stats("GET",   stats.get_sampler);
+    stats.print_stats("POST", stats.post_sampler);
+    //stats.print_stats("op_q",   stats.op_sampler);
 
     int total = stats.gets + stats.posts;
 
@@ -796,6 +796,7 @@ void do_mutilate(const vector<string>& servers, options_t& options,
   }
 
   // Load database on lead connection for each server.
+#if 0
   if (!options.noload) {
     V("Loading database.");
 
@@ -880,6 +881,7 @@ void do_mutilate(const vector<string>& servers, options_t& options,
       if (!conn->is_ready()) restart = true;
 
     if (restart) {
+      DIE("Restarted...");
 
     // Wait for all Connections to become IDLE.
     while (1) {
@@ -905,6 +907,7 @@ void do_mutilate(const vector<string>& servers, options_t& options,
 
     if (master) V("Warmup stop.");
   }
+#endif
 
 
   // FIXME: Synchronize start_time here across threads/nodes.

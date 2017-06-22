@@ -2,6 +2,7 @@
 #ifndef OPERATION_H
 #define OPERATION_H
 
+#include <event2/http.h>
 #include <string>
 
 using namespace std;
@@ -14,7 +15,7 @@ public:
     GET, POST, PUT, DELETE, PATCH
   };
 
-  type_enum type;
+  evhttp_cmd_type type;
 
   string key;
   // string value;

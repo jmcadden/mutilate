@@ -785,7 +785,7 @@ void do_mutilate(const vector<string>& servers, options_t& options,
   while (1) {
     // FIXME: If all connections become ready before event_base_loop
     // is called, this will deadlock.
-    event_base_loop(base, EVLOOP_ONCE);
+    //event_base_loop(base, EVLOOP_ONCE);
 
     bool restart = false;
     for (Connection *conn: connections)

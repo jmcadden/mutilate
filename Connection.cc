@@ -127,6 +127,7 @@ void Connection::request_callback(struct evhttp_request *req){
  * Issue either a get or set request to the server according to our probability distribution.
  */
 void Connection::issue_something(double now) {
+    D("Issuing...!");
   char key[256];
   // FIXME: generate key distribution here!
   string keystr = keygen->generate(lrand48() % options.records);
@@ -296,6 +297,7 @@ bool Connection::check_exit_condition(double now) {
  * Handle new connection and error events.
  */
 void Connection::event_callback(short events) {
+    DIE("THIS HAPPENED...");
   if (events & BEV_EVENT_CONNECTED) {
     D("Connected to %s:%s.", hostname.c_str(), port.c_str());
     int fd = 0;//bufferevent_getfd(bev);
@@ -506,6 +508,7 @@ void timer_cb(evutil_socket_t fd, short what, void *ptr) {
 }
 
 void bev_request_cb(struct evhttp_request *req, void *ptr){
+    D("Bev Request Callback!");
   Connection* conn = (Connection*) ptr;
   conn->request_callback(req);
 }

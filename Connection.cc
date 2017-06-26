@@ -181,6 +181,8 @@ void Connection::request_callback(struct evhttp_request *req){
       DIE("Failed to connect to server: Connection refused\n");
     case HTTP_OK:
       break;
+    case 202: // Accepted
+      break;
     case HTTP_NOCONTENT:
     case HTTP_MOVEPERM:
     case HTTP_MOVETEMP:
@@ -197,8 +199,7 @@ void Connection::request_callback(struct evhttp_request *req){
 	    //D("Error Response code #%d\n", evhttp_request_get_response_code(req));
       break;
     default: 
-	    D("Error Response code: %d\n", evhttp_request_get_response_code(req));
-      DIE("UNKNOWN RESPONSE CODE");
+	    DIE("Error Response code: %d\n", evhttp_request_get_response_code(req));
   }
   finish_op(op);
       
@@ -229,7 +230,7 @@ void Connection::issue_something(double now) {
     issue_get(key, now);
   }
 #endif 
-  issue_request(key, now, EVHTTP_REQ_GET);
+  issue_request(key, now, EVHTTP_REQ_POST);
 }
 
 

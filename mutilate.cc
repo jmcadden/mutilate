@@ -9,9 +9,11 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <fstream>
 #include <queue>
 #include <string>
 #include <vector>
+#include <iostream>
 
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
@@ -20,6 +22,8 @@
 #include <event2/http.h>
 #include <event2/thread.h>
 #include <event2/util.h>
+
+#include "json/json.h"
 
 #include "config.h"
 
@@ -52,7 +56,7 @@ zmq::context_t context(1);
 #endif
 
 struct thread_data {
-  const vector<string> *servers;
+  const vector<Json::Value> *operations;
   options_t *options;
   bool master;  // Thread #0, not to be confused with agent master.
 #ifdef HAVE_LIBZMQ
@@ -68,14 +72,14 @@ double boot_time;
 
 void init_random_stuff();
 
-void go(const vector<string> &servers, options_t &options,
+void go(const vector<Json::Value> &operations, options_t &options,
         ConnectionStats &stats
 #ifdef HAVE_LIBZMQ
 , zmq::socket_t* socket = NULL
 #endif
 );
 
-void do_mutilate(const vector<string> &servers, options_t &options,
+void do_mutilate(const vector<Json::Value> &operations, options_t &options,
                  ConnectionStats &stats, bool master = true
 #ifdef HAVE_LIBZMQ
 , zmq::socket_t* socket = NULL
@@ -173,17 +177,17 @@ void agent() {
     options_t options;
     memcpy(&options, request.data(), sizeof(options));
 
-    vector<string> servers;
+    vector<Json::Value> operations;
 
     /* TODO: */
-    for (int i = 0; i < options.server_given; i++) {
-      servers.push_back(s_recv(socket));
+    for (int i = 0; i < options.operation_given; i++) {
+      operations.push_back(s_recv(socket));
       s_send(socket, "ACK");
     }
     /* ******** */
 
-    for (auto i: servers) {
-      V("Got server = %s", i.c_str());
+    for (auto i: operations) {
+      V("Got operation ") ;//= %s", i.c_str());
     }
 
     options.threads = args.threads_arg;
@@ -203,7 +207,7 @@ void agent() {
 
     ConnectionStats stats;
 
-    go(servers, options, stats, &socket);
+    go(operations, options, stats, &socket);
 
     AgentStats as;
 
@@ -224,10 +228,10 @@ void agent() {
   }
 }
 
-void prep_agent(const vector<string>& servers, options_t& options) {
+void prep_agent(const vector<Json::Value>& operations, options_t& options) {
   int sum = options.lambda_denom;
   if (args.measure_connections_given)
-    sum = args.measure_connections_arg * options.server_given * options.threads;
+    sum = args.measure_connections_arg * options.operation_given * options.threads;
 
   int master_sum = sum;
   if (args.measure_qps_given) {
@@ -246,12 +250,13 @@ void prep_agent(const vector<string>& servers, options_t& options) {
     unsigned int num = *((int *) rep.data());
 
     sum += options.connections * (options.roundrobin ?
-            (servers.size() > num ? servers.size() : num) : 
-            (servers.size() * num));
+            (operations.size() > num ? operations.size() : num) : 
+            (operations.size() * num));
 
-    for (auto i: servers) {
-      s_send(*s, i);
-      string rep = s_recv(*s);
+    for (auto i: operations) {
+      DIE(" Talking to server");
+      //s_send(*s, i);
+      //string rep = s_recv(*s);
     }
   }
 
@@ -379,7 +384,7 @@ int main(int argc, char **argv) {
     DIE("--connections must be between [1,%d]", MAXIMUM_CONNECTIONS);
   //  if (get_distribution(args.iadist_arg) == -1)
   //    DIE("--iadist invalid: %s", args.iadist_arg);
-  if (!args.server_given && !args.agentmode_given)
+  if (!args.operation_given && !args.agentmode_given && !args.operation_given)
     DIE("--server or --agentmode must be specified.");
 
   // TODO: Discover peers, share arguments.
@@ -415,13 +420,25 @@ int main(int argc, char **argv) {
 
   pthread_barrier_init(&barrier, NULL, options.threads);
 
-  vector<string> servers;
-  for (unsigned int s = 0; s < args.server_given; s++)
+  //vector<string> servers;
+  //for (unsigned int s = 0; s < args.operation_given; s++)
+  //{
+  //  if(verify_uri(args.server_arg[s])){
+  //    servers.push_back(string(args.server_arg[s]));
+  //  }
+  //}
+
+  vector<Json::Value> operations;
+  for (unsigned int s = 0; s < args.operation_given; s++)
   {
-    if(verify_uri(args.server_arg[s])){
-      servers.push_back(string(args.server_arg[s]));
-    }
+    D("Read in json operation...");
+    Json::Value foo;
+    std::ifstream readin(args.operation_arg[s], std::ifstream::binary);
+    readin >> foo;
+    operations.push_back(foo);
   }
+  std::cout << operations[0].get("method", "NILL").asString() << std::endl;
+  std::cout << "GOOD!" << std::endl; 
 
   ConnectionStats stats;
 
@@ -443,7 +460,7 @@ int main(int argc, char **argv) {
     double nth;
     int cur_qps;
 
-    go(servers, options, stats);
+    go(operations, options, stats);
 
     nth = stats.get_nth(n);
     peak_qps = stats.get_qps();
@@ -464,7 +481,7 @@ int main(int argc, char **argv) {
 
       stats = ConnectionStats();
 
-      go(servers, options, stats);
+      go(operations, options, stats);
 
       nth = stats.get_nth(n);
 
@@ -486,7 +503,7 @@ int main(int argc, char **argv) {
 
       stats = ConnectionStats();
 
-      go(servers, options, stats);
+      go(operations, options, stats);
 
       nth = stats.get_nth(n);
 
@@ -516,19 +533,19 @@ int main(int argc, char **argv) {
       options.qps = q;
       options.lambda = (double) options.qps / (double) options.lambda_denom * args.lambda_mul_arg;
       //      options.lambda = (double) options.qps / options.connections /
-      //        args.server_given /
+      //        args.operation_given /
       //        (args.threads_arg < 1 ? 1 : args.threads_arg);
 
       stats = ConnectionStats();
 
-      go(servers, options, stats);
+      go(operations, options, stats);
 
       stats.print_stats("read", stats.get_sampler, false);
       printf(",%.1f", stats.get_qps());
       printf(",%d\n", q);
     }    
   } else {
-    go(servers, options, stats);
+    go(operations, options, stats);
   }
 
   if (!args.scan_given && !args.loadonly_given) {
@@ -589,7 +606,7 @@ int main(int argc, char **argv) {
   cmdline_parser_free(&args);
 }
 
-void go(const vector<string>& servers, options_t& options,
+void go(const vector<Json::Value>& operations, options_t& options,
         ConnectionStats &stats
 #ifdef HAVE_LIBZMQ
 , zmq::socket_t* socket
@@ -597,7 +614,7 @@ void go(const vector<string>& servers, options_t& options,
 ) {
 #ifdef HAVE_LIBZMQ
   if (args.agent_given > 0) {
-    prep_agent(servers, options);
+    prep_agent(operations, options);
   }
 #endif
 
@@ -607,7 +624,7 @@ void go(const vector<string>& servers, options_t& options,
 #ifdef __clang__
     vector<string>* ts = static_cast<vector<string>*>(alloca(sizeof(vector<string>) * options.threads));
 #else
-    vector<string> ts[options.threads];
+    vector<Json::Value> ts[options.threads];
 #endif
 
 #ifdef __linux__
@@ -623,13 +640,14 @@ void go(const vector<string>& servers, options_t& options,
       else td[t].master = false;
 
       if (options.roundrobin) {
-        for (unsigned int i = (t % servers.size());
-             i < servers.size(); i += options.threads)
-          ts[t].push_back(servers[i % servers.size()]);
+        for (unsigned int i = (t % operations.size());
+             i < operations.size(); i += options.threads)
+          ts[t].push_back(operations[i % operations.size()]);
 
-        td[t].servers = &ts[t];
+        //td[t].operations = &ts[t];
+        DIE("Comment out err");
       } else {
-        td[t].servers = &servers;
+        td[t].operations = &operations;
       }
 
       pthread_attr_t attr;
@@ -670,7 +688,7 @@ void go(const vector<string>& servers, options_t& options,
       delete cs;
     }
   } else if (options.threads == 1) {
-    do_mutilate(servers, options, stats, true
+    do_mutilate(operations, options, stats, true
 #ifdef HAVE_LIBZMQ
 , socket
 #endif
@@ -701,7 +719,7 @@ void* thread_main(void *arg) {
 
   ConnectionStats *cs = new ConnectionStats();
 
-  do_mutilate(*td->servers, *td->options, *cs, td->master
+  do_mutilate(*td->operations, *td->options, *cs, td->master
 #ifdef HAVE_LIBZMQ
 , td->socket
 #endif
@@ -710,7 +728,7 @@ void* thread_main(void *arg) {
   return cs;
 }
 
-void do_mutilate(const vector<string>& servers, options_t& options,
+void do_mutilate(const vector<Json::Value>& operations, options_t& options,
                  ConnectionStats& stats, bool master
 #ifdef HAVE_LIBZMQ
 , zmq::socket_t* socket
@@ -746,10 +764,11 @@ void do_mutilate(const vector<string>& servers, options_t& options,
   vector<Connection*> connections;
   vector<Connection*> server_lead;
 
-  for (auto s: servers) {
+  for (auto s: operations) {
     
     string hostname, port, path, uri;
-	auto http_uri = evhttp_uri_parse(s.c_str());
+#if 0
+	  auto http_uri = evhttp_uri_parse(s.c_str());
 
 	  hostname = string(evhttp_uri_get_host(http_uri));
 	  port = to_string(evhttp_uri_get_port(http_uri));
@@ -768,6 +787,7 @@ void do_mutilate(const vector<string>& servers, options_t& options,
 	  } else {
       uri = path + "?" + string(q);
 	  }
+#endif
 
     int conns = args.measure_connections_given ? args.measure_connections_arg :
       options.connections;
@@ -988,15 +1008,15 @@ void args_to_options(options_t* options) {
   options->blocking = args.blocking_given;
   options->qps = args.qps_arg;
   options->threads = args.threads_arg;
-  options->server_given = args.server_given;
+  options->operation_given = args.operation_given;
   options->roundrobin = args.roundrobin_given;
 
   int connections = options->connections;
   if (options->roundrobin) {
-    connections *= (options->server_given > options->threads ?
-                    options->server_given : options->threads);
+    connections *= (options->operation_given > options->threads ?
+                    options->operation_given : options->threads);
   } else {
-    connections *= options->server_given * options->threads;
+    connections *= options->operation_given * options->threads;
   }
 
   //  if (args.agent_given) connections *= (1 + args.agent_given);
@@ -1014,7 +1034,7 @@ void args_to_options(options_t* options) {
   //  if (args.no_record_scale_given)
   //    options->records = args.records_arg;
   //  else
-  options->records = args.records_arg / options->server_given;
+  options->records = args.records_arg / options->operation_given;
 
   options->sasl = args.username_given;
   

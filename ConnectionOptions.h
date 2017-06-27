@@ -35,7 +35,7 @@ typedef struct {
   bool skip;
 
   bool roundrobin;
-  int server_given;
+  int operation_given;
   int lambda_denom;
 
   bool oob_thread;

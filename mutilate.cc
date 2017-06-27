@@ -385,7 +385,7 @@ int main(int argc, char **argv) {
   //  if (get_distribution(args.iadist_arg) == -1)
   //    DIE("--iadist invalid: %s", args.iadist_arg);
   if (!args.operation_given && !args.agentmode_given && !args.operation_given)
-    DIE("--server or --agentmode must be specified.");
+    DIE("--operation or --agentmode must be specified.");
 
   // TODO: Discover peers, share arguments.
 
@@ -435,10 +435,12 @@ int main(int argc, char **argv) {
     Json::Value foo;
     std::ifstream readin(args.operation_arg[s], std::ifstream::binary);
     readin >> foo;
+    if(!(foo.isMember("method") && foo.isMember("hostname"))){
+      DIE("INVALID OPERATION: json file must contain 'method' and 'hostname ' fields ");
+  }
     operations.push_back(foo);
   }
   std::cout << operations[0].get("method", "NILL").asString() << std::endl;
-  std::cout << "GOOD!" << std::endl; 
 
   ConnectionStats stats;
 
@@ -767,33 +769,11 @@ void do_mutilate(const vector<Json::Value>& operations, options_t& options,
   for (auto s: operations) {
     
     string hostname, port, path, uri;
-#if 0
-	  auto http_uri = evhttp_uri_parse(s.c_str());
-
-	  hostname = string(evhttp_uri_get_host(http_uri));
-	  port = to_string(evhttp_uri_get_port(http_uri));
-	  if (port == "-1") {
-		  port = (strcasecmp(evhttp_uri_get_scheme(http_uri), "http") == 0) ? "80" : "443";
-	  }
-
-	  path = string(evhttp_uri_get_path(http_uri));
-	  if (path.length() == 0) {
-	  	path = "/";
-	  }
-
-	  auto q = evhttp_uri_get_query(http_uri);
-	  if (q == NULL) { 
-      uri =  path;
-	  } else {
-      uri = path + "?" + string(q);
-	  }
-#endif
-
     int conns = args.measure_connections_given ? args.measure_connections_arg :
       options.connections;
 
     for (int c = 0; c < conns; c++) {
-      Connection* conn = new Connection(base, evdns, hostname, port, uri, options,
+      Connection* conn = new Connection(base, evdns, s, options,
                                         args.agentmode_given ? false :
                                         true);
       connections.push_back(conn);

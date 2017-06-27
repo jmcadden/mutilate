@@ -1,0 +1,10 @@
+{
+  "method": "GET",
+  "hostname": "api.ibm.com",
+  "port": null,
+  "path": "/api/v1/namespaces",
+  "headers": {
+    "accept": "application/json",
+    "content-type": "application/json"
+  }
+}

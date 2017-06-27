@@ -4,6 +4,7 @@
 
 #include <queue>
 #include <string>
+#include <unordered_map>
 
 #include <event2/bufferevent.h>
 #include <event2/dns.h>
@@ -20,6 +21,8 @@
 
 #include "Protocol.h"
 
+#include "json/json.h"
+
 using namespace std;
 
 void bev_event_cb(struct bufferevent *bev, short events, void *ptr);
@@ -34,8 +37,7 @@ class Protocol;
 class Connection {
 public:
   Connection(struct event_base* _base, struct evdns_base* _evdns,
-             string _hostname, string _port, string uri, options_t options,
-             bool sampling = true);
+             Json::Value operation, options_t options, bool sampling = true);
   ~Connection();
 
   double start_time; // Time when this connection began operations.
@@ -57,16 +59,20 @@ public:
   void write_callback();
   void timer_callback();
   void request_callback(struct evhttp_request *req);
-  //
+  // output
+  std::string print(){
+    return type+" "+hostname+":"+port+uri;
+  }; 
 
 private:
   string hostname;
   string port;
   string uri;
-
+  string type;
   struct event_base *base;
   struct evdns_base *evdns;
 	struct evhttp_connection *evcon = NULL;
+  std::unordered_map<std::string, std::string> headers;
 
   struct event *timer; // Used to control inter-transmission time.
   double next_time;    // Inter-transmission time parameters.

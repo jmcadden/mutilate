@@ -1,5 +1,7 @@
 #include <netinet/tcp.h>
 
+#include <locale> 
+
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <event2/dns.h>
@@ -16,15 +18,60 @@
 #include "mutilate.h"
 #include "util.h"
 
+evhttp_cmd_type strToHttpReq(std::string req){
+  if ( req == "get" || req == "GET")
+      return EVHTTP_REQ_GET;
+  if (req == "post" || req == "POST")
+      return EVHTTP_REQ_POST;
+  DIE("Unknown operation type: %s\n", req.c_str());
+}
+
+
 /**
  * Create a new connection to a server endpoint.
  */
 Connection::Connection(struct event_base* _base, struct evdns_base* _evdns,
-                       string _hostname, string _port, string _uri, options_t _options,
+                       Json::Value operation, options_t _options,
                        bool sampling) :
   start_time(0), stats(sampling), options(_options),
-  hostname(_hostname), port(_port), uri(_uri), base(_base), evdns(_evdns)
+  base(_base), evdns(_evdns)
 {
+  // Extract operation values from json structure operation
+  //type = strToHttpReq(operation.get("method", "get").asString());
+  type = operation.get("method", "get").asString();
+  hostname = operation.get("hostname", "localhost").asString();
+	port = operation.get("port", "80").asString();
+  uri = operation.get("path", "/").asString();
+  // headers
+  if(operation.isMember("headers")){
+    for( auto f : operation["headers"].getMemberNames()){
+        auto c = operation["headers"][f];
+        headers[f] = c.asString();
+        //V("Header %s %s \n", f.c_str(), c.asString().c_str());
+    }
+  }
+  V("Operation: %s\n", print().c_str());
+#if 0
+	  auto http_uri = evhttp_uri_parse(s.c_str());
+	  hostname = string(evhttp_uri_get_host(http_uri));
+	  port = to_string(evhttp_uri_get_port(http_uri));
+	  if (port == "-1") {
+		  port = (strcasecmp(evhttp_uri_get_scheme(http_uri), "http") == 0) ? "80" : "443";
+	  }
+
+	  path = string(evhttp_uri_get_path(http_uri));
+	  if (path.length() == 0) {
+	  	path = "/";
+	  }
+
+	  auto q = evhttp_uri_get_query(http_uri);
+	  if (q == NULL) { 
+      uri =  path;
+	  } else {
+      uri = path + "?" + string(q);
+	  }
+#endif
+
   valuesize = createGenerator(options.valuesize);
   keysize = createGenerator(options.keysize);
   keygen = new KeyGenerator(keysize, options.records);

@@ -26,7 +26,6 @@ evhttp_cmd_type strToHttpReq(std::string req){
   DIE("Unknown operation type: %s\n", req.c_str());
 }
 
-
 /**
  * Create a new connection to a server endpoint.
  */
@@ -48,32 +47,9 @@ Connection::Connection(struct event_base* _base, struct evdns_base* _evdns,
     for( auto f : operation["headers"].getMemberNames()){
         auto c = operation["headers"][f];
         headers[f] = c.asString();
-        //V("Header %s %s \n", f.c_str(), c.asString().c_str());
     }
   }
-  V("Operation: %s\n", print_operation().c_str());
-
-	  //auto http_uri = evhttp_uri_parse(hostname.c_str());
-	  //auto host_tmp = string(evhttp_uri_get_host(http_uri));
-	  //auto port_tmp= to_string(evhttp_uri_get_port(http_uri));
-	  //auto path_tmp = string(evhttp_uri_get_path(http_uri));
-
-    //V("DEBUG: %s %s %s\n",  host_tmp.c_str(), port_tmp.c_str(), path_tmp.c_str());
-
-
-#if 0
-	  path = string(evhttp_uri_get_path(http_uri));
-	  if (path.length() == 0) {
-	  	path = "/";
-	  }
-
-	  auto q = evhttp_uri_get_query(http_uri);
-	  if (q == NULL) { 
-      uri =  path;
-	  } else {
-      uri = path + "?" + string(q);
-	  }
-#endif
+  I("%s\n", print_operation().c_str());
 
   valuesize = createGenerator(options.valuesize);
   keysize = createGenerator(options.keysize);
@@ -92,22 +68,9 @@ Connection::Connection(struct event_base* _base, struct evdns_base* _evdns,
 
   last_tx = last_rx = 0.0;
 
-  //bev = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE);
-  //bufferevent_setcb(bev, bev_read_cb, bev_write_cb, bev_event_cb, this);
-  //bufferevent_enable(bev, EV_READ | EV_WRITE);
-
 	// For simplicity, we let DNS resolution block. Everything else should be
 	// asynchronous though.
 	evcon = evhttp_connection_base_new(base, evdns, hostname.c_str(), atoi(port.c_str()));
-
-  //prot = new ProtocolAscii(options, this, evcon);
-
-  //if (bufferevent_socket_connect_hostname(bev, evdns, AF_UNSPEC,
-  //                                        hostname.c_str(),
-  //                                        atoi(port.c_str()))) {
-  //  DIE("bufferevent_socket_connect_hostname()");
-  //}
-
   timer = evtimer_new(base, timer_cb, this);
 }
 
@@ -141,29 +104,12 @@ void Connection::reset() {
 /**
  * Set our event processing priority.
  */
-void Connection::set_priority(int pri) {
-  //if (bufferevent_priority_set(bev, pri)) {
-  //  DIE("bufferevent_set_priority(bev, %d) failed", pri);
-  //}
-}
+void Connection::set_priority(int pri) { DIE("UNIMPLEMENTED"); }
 
 /**
  * Load any required test data onto the server.
  */
-void Connection::start_loading() {
-  //read_state = LOADING;
-  //loader_issued = loader_completed = 0;
-
-  //for (int i = 0; i < LOADER_CHUNK; i++) {
-  //  if (loader_issued >= options.records) break;
-  //  char key[256];
-  //  int index = lrand48() % (1024 * 1024);
-  //  string keystr = keygen->generate(loader_issued);
-  //  strcpy(key, keystr.c_str());
-  //  issue_post(key, &random_char[index], valuesize->generate());
-  //  loader_issued++;
-  //}
-}
+void Connection::start_loading() { DIE("UNIMPLEMENTED"); }
 
 /**
  * http request callback
@@ -225,6 +171,7 @@ void Connection::issue_something(double now) {
   strcpy(key, keystr.c_str());
 
 #if 0
+  // Generate a random key
   if (drand48() < options.update) {
     int index = lrand48() % (1024 * 1024);
     issue_post(key, &random_char[index], valuesize->generate(), now);
@@ -232,6 +179,7 @@ void Connection::issue_something(double now) {
     issue_get(key, now);
   }
 #endif 
+
   issue_request(key, now, EVHTTP_REQ_POST);
 }
 
@@ -268,17 +216,16 @@ void Connection::issue_request(const char* key, double now, evhttp_cmd_type type
 	}
 	auto output_headers = evhttp_request_get_output_headers(req);
 	evhttp_add_header(output_headers, "Host", hostname.c_str());
+  // TODO: may not want to close connection each time
 	evhttp_add_header(output_headers, "Connection", "close");
+
   for(  const auto &h : headers){
 	  evhttp_add_header(output_headers, h.first.c_str(), h.second.c_str());
-    V("Added Header: %s %s", h.first.c_str(), h.second.c_str());
+    D("Added Header: %s %s", h.first.c_str(), h.second.c_str());
   }
-  
-    V("Issuing request %s:%s%s", hostname.c_str(), port.c_str(), uri.c_str()); 
   if (evhttp_make_request(evcon, req, type, uri.c_str()) < 0){
     DIE("REQUEST FAILED!");
   }
-  //if (read_state != LOADING) stats.tx_bytes += l;
  }
 
 void Connection::issue_post(const char* key, const char* value, int length,
@@ -288,63 +235,7 @@ void Connection::issue_post(const char* key, const char* value, int length,
 void Connection::issue_get(const char* key, double now) {
   DIE("ISSUE GET");
 }
-#if 0
-/**
- * Issue a get request to the server.
- */
-void Connection::issue_get(const char* key, double now) {
-  Operation op;
-  int l;
 
-#if HAVE_CLOCK_GETTIME
-  op.start_time = get_time_accurate();
-#else
-  if (now == 0.0) {
-#if USE_CACHED_TIME
-    struct timeval now_tv;
-    event_base_gettimeofday_cached(base, &now_tv);
-    op.start_time = tv_to_double(&now_tv);
-#else
-    op.start_time = get_time();
-#endif
-  } else {
-    op.start_time = now;
-  }
-#endif
-
-  op.key = string(key);
-  op.type = Operation::GET;
-  op_queue.push(op);
-
-  if (read_state == IDLE) read_state = WAITING_FOR_GET;
-  l = prot->get_request(key);
-  if (read_state != LOADING) stats.tx_bytes += l;
-}
-
-/**
- * Issue a set request to the server.
- */
-void Connection::issue_post(const char* key, const char* value, int length,
-                           double now) {
-  Operation op;
-  int l;
-
-#if HAVE_CLOCK_GETTIME
-  op.start_time = get_time_accurate();
-#else
-  if (now == 0.0) op.start_time = get_time();
-  else op.start_time = now;
-#endif
-
-  op.type = Operation::POST;
-  op_queue.push(op);
-
-  if (read_state == IDLE) read_state = WAITING_FOR_POST;
-  l = prot->post_request(key, value, length);
-  if (read_state != LOADING) stats.tx_bytes += l;
-}
-
-#endif
 /**
  * Return the oldest live operation in progress.
  */
@@ -358,14 +249,7 @@ void Connection::pop_op() {
 
   // Advance the read state machine.
   if (op_queue.size() > 0) {
-    DIE("HERE WE ARE 1234");
-    #if 0
-    Operation& op = op_queue.front(); switch (op.type) {
-    case Operation::GET: read_state = WAITING_FOR_GET; break;
-    case Operation::POST: read_state = WAITING_FOR_POST; break;
-    default: DIE("Not implemented.");
-    }
-    #endif
+    DIE("UNIMPLEMENTED");
   }
 }
 

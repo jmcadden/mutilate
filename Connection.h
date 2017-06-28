@@ -60,7 +60,7 @@ public:
   void timer_callback();
   void request_callback(struct evhttp_request *req);
   // output
-  std::string print(){
+  std::string print_operation(){
     return type+" "+hostname+":"+port+uri;
   }; 
 

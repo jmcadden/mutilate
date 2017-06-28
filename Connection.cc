@@ -37,9 +37,10 @@ Connection::Connection(struct event_base* _base, struct evdns_base* _evdns,
   base(_base), evdns(_evdns)
 {
   // Extract operation values from json structure operation
-  //type = strToHttpReq(operation.get("method", "get").asString());
+  auto h = operation.get("hostname", "localhost").asString();
   type = operation.get("method", "get").asString();
-  hostname = operation.get("hostname", "localhost").asString();
+  hostname = string(evhttp_uri_get_host(evhttp_uri_parse(h.c_str())));
+  V("DEBUG HOSTNAME: %s\n", hostname.c_str());
 	port = operation.get("port", "80").asString();
   uri = operation.get("path", "/").asString();
   // headers
@@ -50,15 +51,17 @@ Connection::Connection(struct event_base* _base, struct evdns_base* _evdns,
         //V("Header %s %s \n", f.c_str(), c.asString().c_str());
     }
   }
-  V("Operation: %s\n", print().c_str());
-#if 0
-	  auto http_uri = evhttp_uri_parse(s.c_str());
-	  hostname = string(evhttp_uri_get_host(http_uri));
-	  port = to_string(evhttp_uri_get_port(http_uri));
-	  if (port == "-1") {
-		  port = (strcasecmp(evhttp_uri_get_scheme(http_uri), "http") == 0) ? "80" : "443";
-	  }
+  V("Operation: %s\n", print_operation().c_str());
 
+	  //auto http_uri = evhttp_uri_parse(hostname.c_str());
+	  //auto host_tmp = string(evhttp_uri_get_host(http_uri));
+	  //auto port_tmp= to_string(evhttp_uri_get_port(http_uri));
+	  //auto path_tmp = string(evhttp_uri_get_path(http_uri));
+
+    //V("DEBUG: %s %s %s\n",  host_tmp.c_str(), port_tmp.c_str(), path_tmp.c_str());
+
+
+#if 0
 	  path = string(evhttp_uri_get_path(http_uri));
 	  if (path.length() == 0) {
 	  	path = "/";
@@ -180,8 +183,7 @@ void Connection::request_callback(struct evhttp_request *req){
     case 0: // Connection refused
       DIE("Failed to connect to server: Connection refused\n");
     case HTTP_OK:
-      break;
-    case 202: // Accepted
+    case 202: // HTTP_ACCEPTED
       break;
     case HTTP_NOCONTENT:
     case HTTP_MOVEPERM:
@@ -196,10 +198,10 @@ void Connection::request_callback(struct evhttp_request *req){
     case HTTP_NOTIMPLEMENTED:
     case HTTP_SERVUNAVAIL:
       stats.get_misses++;
-	    //D("Error Response code #%d\n", evhttp_request_get_response_code(req));
+	    D("Warning: Received %d response\n", evhttp_request_get_response_code(req));
       break;
     default: 
-	    DIE("Error Response code: %d\n", evhttp_request_get_response_code(req));
+	    DIE("Error: Unknown response code: %d\n", evhttp_request_get_response_code(req));
   }
   finish_op(op);
       
@@ -208,7 +210,7 @@ void Connection::request_callback(struct evhttp_request *req){
 	while ((nread = evbuffer_remove(evhttp_request_get_input_buffer(req),
 		    buffer, sizeof(buffer))) > 0) {
     stats.rx_bytes += nread;
-    // print payload
+    // dump response payload to stdout
 		//fwrite(buffer, nread, 1, stdout);
 	}
 }
@@ -267,6 +269,12 @@ void Connection::issue_request(const char* key, double now, evhttp_cmd_type type
 	auto output_headers = evhttp_request_get_output_headers(req);
 	evhttp_add_header(output_headers, "Host", hostname.c_str());
 	evhttp_add_header(output_headers, "Connection", "close");
+  for(  const auto &h : headers){
+	  evhttp_add_header(output_headers, h.first.c_str(), h.second.c_str());
+    V("Added Header: %s %s", h.first.c_str(), h.second.c_str());
+  }
+  
+    V("Issuing request %s:%s%s", hostname.c_str(), port.c_str(), uri.c_str()); 
   if (evhttp_make_request(evcon, req, type, uri.c_str()) < 0){
     DIE("REQUEST FAILED!");
   }

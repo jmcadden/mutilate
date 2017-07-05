@@ -648,8 +648,7 @@ void go(const vector<Json::Value>& operations, options_t& options,
              i < operations.size(); i += options.threads)
           ts[t].push_back(operations[i % operations.size()]);
 
-        //td[t].operations = &ts[t];
-        DIE("Comment out err");
+        td[t].operations = &ts[t];
       } else {
         td[t].operations = &operations;
       }

@@ -576,9 +576,11 @@ int main(int argc, char **argv) {
     printf("RX %10" PRIu64 " bytes : %6.1f MB/s\n",
            stats.rx_bytes,
            (double) stats.rx_bytes / 1024 / 1024 / (stats.stop - stats.start));
+#if 0
     printf("TX %10" PRIu64 " bytes : %6.1f MB/s\n",
            stats.tx_bytes,
            (double) stats.tx_bytes / 1024 / 1024 / (stats.stop - stats.start));
+#endif
 
     if (args.save_given) {
       printf("Saving latency samples to %s.\n", args.save_arg);

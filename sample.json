@@ -1,9 +1,10 @@
 {
   "method": "GET",
-  "hostname": "api.ibm.com",
-  "port": null,
-  "path": "/api/v1/namespaces",
+  "hostname": "http://172.17.0.1",
+  "port": "10001",
+  "path": "/api/v1/namespaces/_/actions/hello",
   "headers": {
+		"Authorization": "Basic MjNiYzQ2YjEtNzFmNi00ZWQ1LThjNTQtODE2YWE0ZjhjNTAyOjEyM3pPM3haQ0xyTU42djJCS0sxZFhZRnBYbFBrY2NPRnFtMTJDZEFzTWdSVTRWck5aOWx5R1ZDR3VNREdJd1A=",
     "accept": "application/json",
     "content-type": "application/json"
   }

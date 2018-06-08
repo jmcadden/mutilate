@@ -42,10 +42,10 @@ env.Append(CPPFLAGS = ' -O3 -Wall -g')
 
 env.Command(['cmdline.cc', 'cmdline.h'], 'cmdline.ggo', 'gengetopt < $SOURCE')
 
-src = Split("""mutilate.cc jsoncpp.cc cmdline.cc log.cc distributions.cc util.cc
+src = Split("""serverlate.cc jsoncpp.cc cmdline.cc log.cc distributions.cc util.cc
                Connection.cc Protocol.cc Generator.cc""")
 
 if not env['HAVE_POSIX_BARRIER']: # USE_POSIX_BARRIER:
     src += ['barrier.cc']
 
-env.Program(target='mutilate', source=src)
+env.Program(target='serverlate', source=src)

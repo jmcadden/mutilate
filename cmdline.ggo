@@ -1,6 +1,6 @@
-package "mutilate"
+package "serverlate"
 version "0.1"
-usage "mutilate -s server[:port] [options]"
+usage "serverlate -s server[:port] [options]"
 description "\"High-performance\" memcached benchmarking tool"
 
 args "-c cc --show-required -C --default-optional -l"

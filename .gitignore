@@ -3,7 +3,7 @@
 .scon*
 config.log
 gmon.out
-mutilate
+serverlate
 cmdline.cc
 cmdline.h
 gtest

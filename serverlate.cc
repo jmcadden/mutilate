@@ -40,7 +40,7 @@
 #include "Connection.h"
 #include "ConnectionOptions.h"
 #include "log.h"
-#include "mutilate.h"
+#include "serverlate.h"
 #include "util.h"
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -79,7 +79,7 @@ void go(const vector<Json::Value> &operations, options_t &options,
 #endif
 );
 
-void do_mutilate(const vector<Json::Value> &operations, options_t &options,
+void do_serverlate(const vector<Json::Value> &operations, options_t &options,
                  ConnectionStats &stats, bool master = true
 #ifdef HAVE_LIBZMQ
 , zmq::socket_t* socket = NULL
@@ -120,7 +120,7 @@ static bool s_send (zmq::socket_t &socket, const std::string &string) {
  * 2. Agent -> Master: int num = (--threads) * (--lambda_mul)
  *
  * The agent sends a number to the master indicating how many threads
- * this mutilate agent will spawn, and a mutiplier that weights how
+ * this serverlate agent will spawn, and a mutiplier that weights how
  * many QPS this agent's connections will send relative to unweighted
  * connections (i.e. we can request that a purely load-generating
  * agent or an agent on a really fast network connection be more
@@ -130,20 +130,20 @@ static bool s_send (zmq::socket_t &socket, const std::string &string) {
  *
  * The master aggregates all of the numbers collected in (2) and
  * computes a global "lambda_denom".  Which is essentially a count of
- * the total number of Connections across all mutilate instances,
+ * the total number of Connections across all serverlate instances,
  * weighted by lambda_mul if necessary.  It broadcasts this number to
  * all agents.
  *
- * Each instance of mutilate at this point adjusts the lambda in
+ * Each instance of serverlate at this point adjusts the lambda in
  * options_t sent in (1) to account for lambda_denom.  Note that
- * lambda_mul is specific to each instance of mutilate
+ * lambda_mul is specific to each instance of serverlate
  * (i.e. --lambda_mul X) and not sent as part of options_t.
  *
  *   lambda = qps / lambda_denom * args.lambda_mul;
  *
  * RUN PHASE
  *
- * After the PREP phase completes, everyone executes do_mutilate().
+ * After the PREP phase completes, everyone executes do_serverlate().
  * All clients spawn threads, open connections, load the DB, and wait
  * for all connections to become IDLE.  Following that, they
  * synchronize and finally do the heavy lifting.
@@ -691,7 +691,7 @@ void go(const vector<Json::Value>& operations, options_t& options,
       delete cs;
     }
   } else if (options.threads == 1) {
-    do_mutilate(operations, options, stats, true
+    do_serverlate(operations, options, stats, true
 #ifdef HAVE_LIBZMQ
 , socket
 #endif
@@ -722,7 +722,7 @@ void* thread_main(void *arg) {
 
   ConnectionStats *cs = new ConnectionStats();
 
-  do_mutilate(*td->operations, *td->options, *cs, td->master
+  do_serverlate(*td->operations, *td->options, *cs, td->master
 #ifdef HAVE_LIBZMQ
 , td->socket
 #endif
@@ -731,7 +731,7 @@ void* thread_main(void *arg) {
   return cs;
 }
 
-void do_mutilate(const vector<Json::Value>& operations, options_t& options,
+void do_serverlate(const vector<Json::Value>& operations, options_t& options,
                  ConnectionStats& stats, bool master
 #ifdef HAVE_LIBZMQ
 , zmq::socket_t* socket
